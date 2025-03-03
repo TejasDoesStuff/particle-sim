@@ -38,26 +38,14 @@ public class App extends Application {
         primaryStage.setScene(scene);
         primaryStage.show();
 
-        startUpdate();
         setupKeyHandlers(scene);
+
+        spawnWhiteParticles();
+        spawnBlueParticles();
     }
 
     public static void main(String[] args) {
         launch(args);
-    }
-
-    private void handleMouseClick(MouseEvent event) {
-        double x = event.getX();
-        double y = event.getY();
-
-        Particle newParticle = new Particle(x, y, Color.WHITE);
-
-        particles.add(newParticle);
-
-        Circle circle = new Circle(x, y, 3);
-        circle.setFill(newParticle.getColor());
-
-        ((Pane) primaryStage.getScene().getRoot()).getChildren().add(circle);
     }
 
     private final double GRAVITY_RADIUS = 50.0;
@@ -73,7 +61,7 @@ public class App extends Application {
     private List<Particle> particles = new ArrayList<>();
 
     /**
-     * Update the positions of all particles
+     * Update the positions of all particles based on the forces acting on them 
      * 
      * Rules:
      * 1. White particles are attracted to white particles and blue particles
@@ -81,6 +69,8 @@ public class App extends Application {
      * 3. Blue particles repulse white particles
      * 4. Blue particles are static
      * 
+     * Press R to reset board
+     * Press Space to start sim (bug when you spam space it gets faster and faster)
      * Press B to spawn a blue particle at your mouse
      * Press V to spawn a random blue particle
      * Click to spawn a white particle at the mouse cursor
@@ -111,9 +101,9 @@ public class App extends Application {
             for(int j = 0; j < particles.size(); j++) {
                 if(i == j) continue;
                 Particle other = particles.get(j);
-                if (p.getColor() == Color.BLUE) {
-                    continue;
-                }
+                // if (p.getColor() == Color.BLUE) {
+                //     continue;
+                // }
                 double dx = other.getX() - p.getX();
                 double dy = other.getY() - p.getY();
                 double distance = Math.sqrt(dx * dx + dy * dy);
@@ -183,6 +173,13 @@ public class App extends Application {
             } else if (event.getCode() == KeyCode.V) {
                 spawnRandomBlueParticle();
             }
+            else if (event.getCode() == KeyCode.SPACE) {
+                startSim();
+            } else if (event.getCode() == KeyCode.R) {
+                clearParticles();
+                spawnWhiteParticles();
+                spawnBlueParticles();
+            }
         });
 
         scene.setOnMouseMoved(mouseEvent -> {
@@ -190,10 +187,17 @@ public class App extends Application {
             lastMouseY = mouseEvent.getSceneY();
         });
     }
+
+    private void handleMouseClick(MouseEvent event) {
+        spawnWhiteParticle(event.getSceneX(), event.getSceneY());
+    }
+
+    private void startSim() {
+        startUpdate();
+    }
     
     private double lastMouseX = 0;
     private double lastMouseY = 0;
-    
 
     private void spawnBlueParticle(double x, double y) {
         Particle particle = new Particle(x, y, Color.BLUE);
@@ -210,6 +214,38 @@ public class App extends Application {
         double y = Math.random() * primaryStage.getScene().getHeight();
         
         spawnBlueParticle(x, y);
+    }
+
+    private void spawnWhiteParticle(double x, double y) {
+        Particle particle = new Particle(x, y, Color.WHITE);
+        particles.add(particle);
+        
+        Circle circle = new Circle(x, y, 3, Color.WHITE);
+        
+        Pane root = (Pane) primaryStage.getScene().getRoot();
+        root.getChildren().add(circle);
+    }
+    
+    private void spawnWhiteParticles() {
+        for (int i = 0; i < 1000; i++) {
+            double x = Math.random() * primaryStage.getScene().getWidth();
+            double y = Math.random() * primaryStage.getScene().getHeight();
+            spawnWhiteParticle(x, y);
+        }
+    }
+
+    private void spawnBlueParticles() {
+        for (int i = 0; i < 50; i++) {
+            double x = Math.random() * primaryStage.getScene().getWidth();
+            double y = Math.random() * primaryStage.getScene().getHeight();
+            spawnBlueParticle(x, y);
+        }
+    }
+
+    private void clearParticles() {
+        Pane root = (Pane) primaryStage.getScene().getRoot();
+        root.getChildren().clear();
+        particles.clear();
     }
 
     private void startUpdate() {
