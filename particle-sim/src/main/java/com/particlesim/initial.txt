@@ -1,0 +1,81 @@
+// initial less optimal code
+
+// private void updateParticles() {
+    //     // update particle velocities
+    //     for(int i = 0; i<particles.size(); i++) {
+    //         Particle p = particles.get(i);
+    //         double totalFx = 0.0;
+    //         double totalFy = 0.0;
+
+    //         // calculate forces from other particles
+    //         // check if there is a particle within GRAVITY_RADIUS from the current particle and if there is calculate the force
+    //         for (int j = 0; j < particles.size(); j++) {
+    //             if (i == j) continue;
+    //             Particle other = particles.get(j);
+
+    //             double dx = other.getX() - p.getX();
+    //             double dy = other.getY() - p.getY();
+    //             double distance = Math.sqrt(dx * dx + dy * dy);
+
+    //             if(distance <= GRAVITY_RADIUS) {
+    //                 // calculate force based off masses and distance
+    //                 if(distance < MINIMUM_DISTANCE) {
+    //                     resolveCollision(p, other);
+    //                 } else if (distance <= GRAVITY_RADIUS) {
+    //                     double attractionForce = GRAVITATIONAL_CONSTANT * (MASS * MASS) / (distance * distance);
+    //                     totalFx += attractionForce * (dx / distance);
+    //                     totalFy += attractionForce * (dy / distance);
+    //                 }
+    //             }
+    //         }
+
+    //         // update velocity based on force
+    //         p.setDx((p.getDx() + totalFx / MASS) * FRICTION);
+    //         p.setDy((p.getDy() + totalFy / MASS) * FRICTION);
+    //     }
+
+    //     // update particle positions
+    //     for (int i = 0; i < particles.size(); i++) {
+    //         Particle p = particles.get(i);
+    //         p.setX(p.getX() + p.getDx());
+    //         p.setY(p.getY() + p.getDy());
+    
+    //         Circle circle = (Circle) ((Pane) primaryStage.getScene().getRoot()).getChildren().get(i);
+    //         circle.setCenterX(p.getX());
+    //         circle.setCenterY(p.getY());
+    //     }
+
+    //     // update particle colors
+    // }
+
+    // private void resolveCollision(Particle p1, Particle p2) {
+    //     double dx = p2.getX() - p1.getX();
+    //     double dy = p2.getY() - p1.getY();
+    //     double distance = Math.sqrt(dx * dx + dy * dy);
+    
+    //     if (distance == 0) return;
+    
+    //     double nx = dx / distance;
+    //     double ny = dy / distance;
+
+    //     double dvx = p2.getDx() - p1.getDx();
+    //     double dvy = p2.getDy() - p1.getDy();
+    
+    //     double velocityAlongNormal = dvx * nx + dvy * ny;
+    //     if (velocityAlongNormal > 0) return;
+
+    //     double elasticity = 0.9;
+    //     double impulse = (-(1 + elasticity) * velocityAlongNormal) / (2);
+
+    //     p1.setDx(p1.getDx() - impulse * nx);
+    //     p1.setDy(p1.getDy() - impulse * ny);
+    //     p2.setDx(p2.getDx() + impulse * nx);
+    //     p2.setDy(p2.getDy() + impulse * ny);
+
+    //     double overlap = MINIMUM_DISTANCE - distance;
+    //     double separationStrength = 0.5;
+    //     p1.setX(p1.getX() - nx * overlap * separationStrength);
+    //     p1.setY(p1.getY() - ny * overlap * separationStrength);
+    //     p2.setX(p2.getX() + nx * overlap * separationStrength);
+    //     p2.setY(p2.getY() + ny * overlap * separationStrength);
+    // }
