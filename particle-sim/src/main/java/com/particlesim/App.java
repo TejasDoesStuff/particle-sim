@@ -34,28 +34,62 @@ public class App extends Application {
 
         scene.setOnMouseClicked(this::handleMouseClick);
 
-        primaryStage.setTitle("JavaFX Application");
+        primaryStage.setTitle("Particle Gravity Simulator");
         primaryStage.setScene(scene);
         primaryStage.show();
 
         setupKeyHandlers(scene);
-
-        spawnWhiteParticles();
-        spawnBlueParticles();
     }
 
     public static void main(String[] args) {
         launch(args);
     }
 
+    private double lastMouseX = 0;
+    private double lastMouseY = 0;
+
+    private void setupKeyHandlers(Scene scene) {
+        scene.setOnKeyPressed(event -> {
+            if (event.getCode() == KeyCode.B) {
+                spawnBlueParticle(lastMouseX, lastMouseY);
+            } else if (event.getCode() == KeyCode.V) {
+                spawnRandomBlueParticle();
+            }
+            else if (event.getCode() == KeyCode.SPACE) {
+                startSim();
+            } else if (event.getCode() == KeyCode.R) {
+                clearParticles();
+                spawnWhiteParticles();
+                spawnBlueParticles();
+            } else if (event.getCode() == KeyCode.C) {
+                clearParticles();
+                spawnCirclePattern();
+            }
+        });
+
+        scene.setOnMouseMoved(mouseEvent -> {
+            lastMouseX = mouseEvent.getSceneX();
+            lastMouseY = mouseEvent.getSceneY();
+        });
+    }
+
+    private void handleMouseClick(MouseEvent event) {
+        spawnWhiteParticle(event.getSceneX(), event.getSceneY());
+    }
+
+    private void startSim() {
+        startUpdate();
+    }
+
+    // constants for physics
     private final double GRAVITY_RADIUS = 50.0;
     private final double GRAVITATIONAL_CONSTANT = 0.1;
     private final double MASS = 20.0;
-    private final double MINIMUM_DISTANCE = 4.0;
+    private final double MINIMUM_DISTANCE = 8.0;    
     private final double FRICTION = 0.97;
 
     private final double BLUE_REPULSION_RADIUS = 30.0;
-    private final double BLUE_FORCE_MULTIPLIER = 5.0; 
+    private final double BLUE_FORCE_MULTIPLIER = 5.0;
     private final double BLUE_MASS = MASS * 5.0;
 
     private List<Particle> particles = new ArrayList<>();
@@ -67,13 +101,17 @@ public class App extends Application {
      * 1. White particles are attracted to white particles and blue particles
      * 2. Attraction to blue particles takes priority over attraction to white particles
      * 3. Blue particles repulse white particles
-     * 4. Blue particles are static
+     * 4. Blue particles attract blue particles
+     * 
      * 
      * Press R to reset board
      * Press Space to start sim (bug when you spam space it gets faster and faster)
      * Press B to spawn a blue particle at your mouse
      * Press V to spawn a random blue particle
      * Click to spawn a white particle at the mouse cursor
+     * 
+     * Patterns:
+     * Press C to spawn a circle of white particles in the center of the screen
      */
     private void updateParticles() {
         for(int i = 0; i < particles.size(); i++) {
@@ -81,8 +119,27 @@ public class App extends Application {
             double fX = 0;
             double fY = 0;
 
+            // screen wrapping
+            double screenWidth = primaryStage.getScene().getWidth();
+            double screenHeight = primaryStage.getScene().getHeight();
+
+            if(p.getX() > screenWidth) {
+                p.setX(0);
+            }
+            else if(p.getX() < 0) {
+                p.setX(screenWidth);
+            }
+
+            if(p.getY() > screenHeight) {
+                p.setY(0);
+            }
+            else if(p.getY() < 0) {
+                p.setY(screenHeight);
+            }
+
             double effectiveMass = p.getColor() == Color.BLUE ? BLUE_MASS : MASS;
             
+            // if a white particle is near a blue particle it wont be attracted to white particles
             boolean nearBlue = false;
             if (p.getColor() == Color.WHITE) {
                 for (Particle other : particles) {
@@ -101,19 +158,27 @@ public class App extends Application {
             for(int j = 0; j < particles.size(); j++) {
                 if(i == j) continue;
                 Particle other = particles.get(j);
-                // if (p.getColor() == Color.BLUE) {
-                //     continue;
-                // }
                 double dx = other.getX() - p.getX();
                 double dy = other.getY() - p.getY();
+
+                // maintain forces even if its on the other side of the screen
+                if (dx > screenWidth / 2) dx -= screenWidth;
+                else if (dx < -screenWidth / 2) dx += screenWidth;
+
+                if (dy > screenHeight / 2) dy -= screenHeight;
+                else if (dy < -screenHeight / 2) dy += screenHeight;
+
                 double distance = Math.sqrt(dx * dx + dy * dy);
 
+                // if particles get too close to each other they get pushed back a little bit
                 if(distance < MINIMUM_DISTANCE) {
                     double overlap = MINIMUM_DISTANCE - distance;
                     double separationStrength = 0.25;
                     p.setX(p.getX() - dx * overlap * separationStrength);
                     p.setY(p.getY() - dy * overlap * separationStrength);
                 }
+
+                // if particles are within a certain radius of each other apply a force to them based on rules
                 else if (distance <= GRAVITY_RADIUS) {
                     double force;
                     boolean isAttractive = true;
@@ -138,6 +203,10 @@ public class App extends Application {
                         force = GRAVITATIONAL_CONSTANT * (MASS * MASS) / (distance * distance);
                         isAttractive = true;
                     }
+                    else if (p.getColor () == Color.BLUE && other.getColor() == Color.BLUE) {
+                        force = GRAVITATIONAL_CONSTANT * (MASS * MASS) / (distance * distance);
+                        isAttractive = true;
+                    }
                     else {
                         continue;
                     }
@@ -155,6 +224,7 @@ public class App extends Application {
             p.setDy((p.getDy() + fY / effectiveMass) * FRICTION);
         }
 
+        // update particle positions on the screen
         for (int i = 0; i < particles.size(); i++) {
             Particle p = particles.get(i);
             p.setX(p.getX() + p.getDx());
@@ -166,44 +236,13 @@ public class App extends Application {
         }
     }
 
-    private void setupKeyHandlers(Scene scene) {
-        scene.setOnKeyPressed(event -> {
-            if (event.getCode() == KeyCode.B) {
-                spawnBlueParticle(lastMouseX, lastMouseY);
-            } else if (event.getCode() == KeyCode.V) {
-                spawnRandomBlueParticle();
-            }
-            else if (event.getCode() == KeyCode.SPACE) {
-                startSim();
-            } else if (event.getCode() == KeyCode.R) {
-                clearParticles();
-                spawnWhiteParticles();
-                spawnBlueParticles();
-            }
-        });
-
-        scene.setOnMouseMoved(mouseEvent -> {
-            lastMouseX = mouseEvent.getSceneX();
-            lastMouseY = mouseEvent.getSceneY();
-        });
-    }
-
-    private void handleMouseClick(MouseEvent event) {
-        spawnWhiteParticle(event.getSceneX(), event.getSceneY());
-    }
-
-    private void startSim() {
-        startUpdate();
-    }
-    
-    private double lastMouseX = 0;
-    private double lastMouseY = 0;
+    // particle spawning
 
     private void spawnBlueParticle(double x, double y) {
         Particle particle = new Particle(x, y, Color.BLUE);
         particles.add(particle);
         
-        Circle circle = new Circle(x, y, 5, Color.BLUE);
+        Circle circle = new Circle(x, y, 3, Color.BLUE);
         
         Pane root = (Pane) primaryStage.getScene().getRoot();
         root.getChildren().add(circle);
@@ -235,7 +274,7 @@ public class App extends Application {
     }
 
     private void spawnBlueParticles() {
-        for (int i = 0; i < 50; i++) {
+        for (int i = 0; i < 500; i++) {
             double x = Math.random() * primaryStage.getScene().getWidth();
             double y = Math.random() * primaryStage.getScene().getHeight();
             spawnBlueParticle(x, y);
@@ -255,6 +294,26 @@ public class App extends Application {
                 updateParticles();
             }
         }.start();
+    }
+
+
+    // special patterns
+
+    /*
+     * Spawns a circle of white particles in the center of the screen
+     */
+    private void spawnCirclePattern() {
+        int numParticles = 100;
+        double centerX = primaryStage.getScene().getWidth() / 2;
+        double centerY = primaryStage.getScene().getHeight() / 2;
+        double radius = 200;
+    
+        for (int i = 0; i < numParticles; i++) {
+            double angle = 2 * Math.PI * i / numParticles;
+            double x = centerX + radius * Math.cos(angle);
+            double y = centerY + radius * Math.sin(angle);
+            spawnWhiteParticle(x, y);
+        }
     }
 
 }
