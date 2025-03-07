@@ -117,6 +117,7 @@ public class App extends Application {
      * Press C to spawn a circle of white particles in the center of the screen
      */
     private void updateParticles() {
+        System.out.println("Particles count: " + particles.size());
         for (int i = 0; i < particles.size(); i++) {
             Particle p = particles.get(i);
             double fX = 0;
@@ -172,7 +173,7 @@ public class App extends Application {
                 // if particles get too close to each other they get pushed back a little bit
                 if (distance < MINIMUM_DISTANCE * 2) {
                     double overlap = (MINIMUM_DISTANCE) - distance;
-                    double separationStrength = 0.3;
+                    double separationStrength = 0.5;
                     fX -= (dx / distance) * overlap * separationStrength;
                     fY -= (dy / distance) * overlap * separationStrength;
                 }
@@ -187,7 +188,7 @@ public class App extends Application {
                         force = GRAVITATIONAL_CONSTANT * (MASS * BLUE_MASS) / ((distance * distance)
                                 + 1);
                         if (distance < BLUE_REPULSION_RADIUS) {
-                            force = BLUE_FORCE_MULTIPLIER * force;
+                            force = Math.min( BLUE_FORCE_MULTIPLIER * force, 10.0);
                             isAttractive = false;
                         }
                     } else if (p.getColor() == Color.BLUE && other.getColor() == Color.WHITE) {
@@ -222,16 +223,20 @@ public class App extends Application {
             if (clusterCount > 0) {
                 clusterVX /= clusterCount;
                 clusterVY /= clusterCount;
-                double cohesionFactor = 0.1; // Increase from 0.05
+                double cohesionFactor = 0.1;
                 fX += (clusterVX - p.getDx()) * cohesionFactor;
                 fY += (clusterVY - p.getDy()) * cohesionFactor;
 
-                // New addition: Slight pull towards the center of mass
+                if (clusterCount > 100) {
+                    fX *= 1.2;
+                    fY *= 1.2;
+                }
+
                 double clusterCenterX = p.getX() + clusterVX;
                 double clusterCenterY = p.getY() + clusterVY;
                 double toClusterX = clusterCenterX - p.getX();
                 double toClusterY = clusterCenterY - p.getY();
-                fX += toClusterX * 0.02; // Small pull towards the cluster
+                fX += toClusterX * 0.02;
                 fY += toClusterY * 0.02;
             }
 
