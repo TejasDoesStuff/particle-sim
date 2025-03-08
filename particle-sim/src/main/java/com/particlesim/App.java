@@ -1,7 +1,9 @@
 package com.particlesim;
 
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.lang.Math;
 
 import javafx.animation.AnimationTimer;
@@ -17,6 +19,15 @@ import javafx.scene.input.MouseEvent;
 import javafx.scene.shape.Circle;
 
 public class App extends Application {
+    private enum InteractionType {
+        ATTRACT, REPEL, NONE
+    }
+
+    private Map<Color, Map<Color, InteractionType>> interactionRules = new HashMap<>();
+    private Pane uiPane;
+    private boolean uiVisible = false;
+    private final Color[] PARTICLE_COLORS = { Color.WHITE, Color.BLUE };
+
     private Stage primaryStage;
 
     @Override
@@ -39,6 +50,7 @@ public class App extends Application {
         primaryStage.show();
 
         setupKeyHandlers(scene);
+        setupUI();
     }
 
     public static void main(String[] args) {
@@ -66,6 +78,10 @@ public class App extends Application {
             } else if (event.getCode() == KeyCode.G) {
                 clearParticles();
                 spawnWBGrid();
+            } else if (event.getCode() == KeyCode.U) {
+
+                uiVisible = !uiVisible;
+                uiPane.setVisible(uiVisible);
             }
         });
 
@@ -76,7 +92,9 @@ public class App extends Application {
     }
 
     private void handleMouseClick(MouseEvent event) {
-        spawnWhiteParticle(event.getSceneX(), event.getSceneY());
+        if (event.getSceneX() > uiPane.getPrefWidth()) {
+            spawnWhiteParticle(event.getSceneX(), event.getSceneY());
+        }
     }
 
     private void startSim() {
@@ -84,15 +102,14 @@ public class App extends Application {
     }
 
     // constants for physics
-    private final double GRAVITY_RADIUS = 500.0;
+    private final double GRAVITY_RADIUS = 1000.0;
     private final double GRAVITATIONAL_CONSTANT = 0.1;
-    private final double MASS = 20.0;
-    private final double MINIMUM_DISTANCE = 8.0;
+    private final double MASS = 40.0;
+    private final double MINIMUM_DISTANCE = 5.0;
     private final double FRICTION = 0.97;
 
     private final double BLUE_REPULSION_RADIUS = 30.0;
     private final double BLUE_FORCE_MULTIPLIER = 5.0;
-    private final double BLUE_MASS = MASS * 5.0;
 
     private List<Particle> particles = new ArrayList<>();
 
@@ -124,26 +141,23 @@ public class App extends Application {
             double fY = 0;
 
             // screen wrapping
+            double uiWidth = uiPane.getPrefWidth();
             double screenWidth = primaryStage.getScene().getWidth();
             double screenHeight = primaryStage.getScene().getHeight();
 
-            if (p.getX() > screenWidth) {
-                p.setX(0);
-            } else if (p.getX() < 0) {
-                p.setX(screenWidth);
+            if (p.getX() > screenWidth + uiWidth) {
+                p.setX(uiWidth);
+            } else if (p.getX() < uiWidth) {
+                p.setX(screenWidth + uiWidth);
             }
-
+    
             if (p.getY() > screenHeight) {
                 p.setY(0);
             } else if (p.getY() < 0) {
                 p.setY(screenHeight);
             }
 
-            double effectiveMass = p.getColor() == Color.BLUE ? BLUE_MASS : MASS;
-
-            // if a white particle is near a blue particle it wont be attracted to white
-            // particles
-            boolean nearBlue = false;
+            double effectiveMass = MASS;
 
             double clusterVX = 0;
             double clusterVY = 0;
@@ -157,7 +171,6 @@ public class App extends Application {
                 double dx = other.getX() - p.getX();
                 double dy = other.getY() - p.getY();
 
-                // maintain forces even if its on the other side of the screen
                 if (dx > screenWidth / 2)
                     dx -= screenWidth;
                 else if (dx < -screenWidth / 2)
@@ -170,49 +183,33 @@ public class App extends Application {
 
                 double distance = Math.sqrt(dx * dx + dy * dy);
 
-                // if particles get too close to each other they get pushed back a little bit
                 if (distance < MINIMUM_DISTANCE * 2) {
-                    double overlap = (MINIMUM_DISTANCE) - distance;
-                    double separationStrength = 0.5;
+                    double overlap = (MINIMUM_DISTANCE * 2) - distance;
+                    double separationStrength = 1.5;
                     fX -= (dx / distance) * overlap * separationStrength;
                     fY -= (dy / distance) * overlap * separationStrength;
                 }
-
-                // if particles are within a certain radius of each other apply a force to them
-                // based on rules
                 else if (distance <= GRAVITY_RADIUS) {
-                    double force;
-                    boolean isAttractive = true;
+                    double effectiveDistance = Math.max(distance, 0.1);
+                    InteractionType interaction = interactionRules.get(p.getColor()).get(other.getColor());
 
-                    if (p.getColor() == Color.WHITE && other.getColor() == Color.BLUE) {
-                        force = GRAVITATIONAL_CONSTANT * (MASS * BLUE_MASS) / ((distance * distance)
-                                + 1);
-                        if (distance < BLUE_REPULSION_RADIUS) {
-                            force = Math.min( BLUE_FORCE_MULTIPLIER * force, 10.0);
+                    if (interaction != InteractionType.NONE) {
+                        double force = GRAVITATIONAL_CONSTANT
+                                * (effectiveMass * MASS)
+                                / ((effectiveDistance * effectiveDistance) + 1);
+
+                        boolean isAttractive = (interaction == InteractionType.ATTRACT);
+
+                        if (p.getColor() == Color.WHITE && other.getColor() == Color.BLUE
+                                && distance < BLUE_REPULSION_RADIUS) {
+                            force = Math.min(BLUE_FORCE_MULTIPLIER * force, 10.0);
                             isAttractive = false;
                         }
-                    } else if (p.getColor() == Color.BLUE && other.getColor() == Color.WHITE) {
-                        force = GRAVITATIONAL_CONSTANT * (BLUE_MASS * MASS) / ((distance * distance)
-                                + 1);
-                        isAttractive = false;
-                    } else if (p.getColor() == Color.WHITE && other.getColor() == Color.WHITE) {
-                        if (nearBlue) {
-                            continue;
-                        }
-                        force = 1.5 * GRAVITATIONAL_CONSTANT * (MASS * MASS) / ((distance * distance)
-                                + 1);
-                    } else if (p.getColor() == Color.BLUE && other.getColor() == Color.BLUE) {
-                        force = GRAVITATIONAL_CONSTANT * (MASS * MASS) / ((distance * distance) + 1);
-                    } else {
-                        continue;
-                    }
 
-                    double forceMultiplier = isAttractive ? 1.0 : -1.0;
-                    if (!isAttractive) {
-                        forceMultiplier *= 0.8;
+                        double forceDirection = isAttractive ? 1.0 : -1.0;
+                        fX += forceDirection * force * (dx / effectiveDistance);
+                        fY += forceDirection * force * (dy / effectiveDistance);
                     }
-                    fX += forceMultiplier * force * (dx / distance);
-                    fY += forceMultiplier * force * (dy / distance);
 
                     clusterVX += other.getDx();
                     clusterVY += other.getDy();
@@ -242,15 +239,31 @@ public class App extends Application {
 
             p.setDx((p.getDx() + fX / effectiveMass) * FRICTION);
             p.setDy((p.getDy() + fY / effectiveMass) * FRICTION);
+
+            double maxVelocity = 5.0;
+            double currentVelocity = Math.sqrt(p.getDx() * p.getDx() + p.getDy() * p.getDy());
+            if (currentVelocity > maxVelocity) {
+                p.setDx(p.getDx() * maxVelocity / currentVelocity);
+                p.setDy(p.getDy() * maxVelocity / currentVelocity);
+            }
         }
 
-        // update particle positions on the screen
-        for (int k = 0; k < particles.size(); k++) {
-            Particle particle = particles.get(k);
+        // update particle positions
+        Pane root = (Pane) primaryStage.getScene().getRoot();
+        List<Circle> circles = new ArrayList<>();
+
+        for (javafx.scene.Node node : root.getChildren()) {
+            if (node instanceof Circle) {
+                circles.add((Circle) node);
+            }
+        }
+
+        for (int i = 0; i < particles.size() && i < circles.size(); i++) {
+            Particle particle = particles.get(i);
             particle.setX(particle.getX() + particle.getDx());
             particle.setY(particle.getY() + particle.getDy());
 
-            Circle circle = (Circle) ((Pane) primaryStage.getScene().getRoot()).getChildren().get(k);
+            Circle circle = circles.get(i);
             circle.setCenterX(particle.getX());
             circle.setCenterY(particle.getY());
         }
@@ -262,14 +275,15 @@ public class App extends Application {
         Particle particle = new Particle(x, y, Color.BLUE);
         particles.add(particle);
 
-        Circle circle = new Circle(x, y, 1, Color.BLUE);
+        Circle circle = new Circle(x, y, 3, Color.BLUE);
 
         Pane root = (Pane) primaryStage.getScene().getRoot();
         root.getChildren().add(circle);
     }
 
     private void spawnRandomBlueParticle() {
-        double x = Math.random() * primaryStage.getScene().getWidth();
+        double uiWidth = uiPane.getPrefWidth();
+        double x = uiWidth + Math.random() * (primaryStage.getScene().getWidth() - uiWidth);
         double y = Math.random() * primaryStage.getScene().getHeight();
 
         spawnBlueParticle(x, y);
@@ -279,23 +293,25 @@ public class App extends Application {
         Particle particle = new Particle(x, y, Color.WHITE);
         particles.add(particle);
 
-        Circle circle = new Circle(x, y, 1, Color.WHITE);
+        Circle circle = new Circle(x, y, 3, Color.WHITE);
 
         Pane root = (Pane) primaryStage.getScene().getRoot();
         root.getChildren().add(circle);
     }
 
     private void spawnWhiteParticles() {
-        for (int i = 0; i < 1000; i++) {
-            double x = Math.random() * primaryStage.getScene().getWidth();
+        double uiWidth = uiPane.getPrefWidth();
+        for (int i = 0; i < 500; i++) {
+            double x = uiWidth + Math.random() * (primaryStage.getScene().getWidth() - uiWidth);
             double y = Math.random() * primaryStage.getScene().getHeight();
             spawnWhiteParticle(x, y);
         }
     }
 
     private void spawnBlueParticles() {
+        double uiWidth = uiPane.getPrefWidth();
         for (int i = 0; i < 500; i++) {
-            double x = Math.random() * primaryStage.getScene().getWidth();
+            double x = uiWidth + Math.random() * (primaryStage.getScene().getWidth() - uiWidth);
             double y = Math.random() * primaryStage.getScene().getHeight();
             spawnBlueParticle(x, y);
         }
@@ -303,7 +319,18 @@ public class App extends Application {
 
     private void clearParticles() {
         Pane root = (Pane) primaryStage.getScene().getRoot();
+
+        List<javafx.scene.Node> nodesToKeep = new ArrayList<>();
+
+        for (javafx.scene.Node node : root.getChildren()) {
+            if (node == uiPane) {
+                nodesToKeep.add(node);
+            }
+        }
+
         root.getChildren().clear();
+        root.getChildren().addAll(nodesToKeep);
+
         particles.clear();
     }
 
@@ -321,7 +348,8 @@ public class App extends Application {
     // Spawns a circle of white particles in the center of the screen
     private void spawnCirclePattern() {
         int numParticles = 100;
-        double centerX = primaryStage.getScene().getWidth() / 2;
+        double uiWidth = uiPane.getPrefWidth();
+        double centerX = uiWidth + (primaryStage.getScene().getWidth() - uiWidth) / 2;
         double centerY = primaryStage.getScene().getHeight() / 2;
         double radius = 200;
 
@@ -333,23 +361,21 @@ public class App extends Application {
         }
     }
 
+    // Spawns a grid of white and blue particles
     private void spawnWBGrid() {
-        int gridSize = 5; // 5x5 grid
-        double spacing = 30; // Distance between particles
+        int gridSize = 5;
+        double spacing = 30;
 
-        // Center coordinates
-        double centerX = primaryStage.getScene().getWidth() / 2;
+        double uiWidth = uiPane.getPrefWidth();
+        double centerX = uiWidth + (primaryStage.getScene().getWidth() - uiWidth) / 2;
         double centerY = primaryStage.getScene().getHeight() / 2;
 
-        // White grid positioned 40px left of center
         double startXWhite = centerX - spacing * (gridSize / 2) - 40;
         double startYWhite = centerY - spacing * (gridSize / 2);
 
-        // Blue grid positioned 40px right of center
         double startXBlue = centerX + 40;
         double startYBlue = centerY - spacing * (gridSize / 2);
 
-        // Spawn white grid
         for (int i = 0; i < gridSize; i++) {
             for (int j = 0; j < gridSize; j++) {
                 double x = startXWhite + j * spacing;
@@ -358,7 +384,6 @@ public class App extends Application {
             }
         }
 
-        // Spawn blue grid
         for (int i = 0; i < gridSize; i++) {
             for (int j = 0; j < gridSize; j++) {
                 double x = startXBlue + j * spacing;
@@ -367,4 +392,145 @@ public class App extends Application {
             }
         }
     }
+
+    // UI
+    private void setupUI() {
+        initializeRules();
+
+        uiPane = new Pane();
+        uiPane.setStyle(
+                "-fx-background-color: rgba(30,30,30,0.5); -fx-border-color: white; -fx-border-width: 0 1 0 0;");
+        double panelWidth = 150;
+        uiPane.setPrefWidth(panelWidth);
+        uiPane.setMinWidth(panelWidth);
+        uiPane.setMaxWidth(panelWidth);
+
+        double sceneHeight = primaryStage.getScene().getHeight();
+        uiPane.setPrefHeight(sceneHeight);
+        uiPane.setMinHeight(sceneHeight);
+        uiPane.setLayoutX(0);
+        uiPane.setLayoutY(0);
+        uiPane.setVisible(true);
+
+        // title
+        javafx.scene.text.Text title = new javafx.scene.text.Text(panelWidth / 2 - 50, 30, "Rules");
+        title.setFill(Color.WHITE);
+        title.setStyle("-fx-font-weight: bold; -fx-font-size: 14px;");
+        uiPane.getChildren().add(title);
+
+        // selection grid
+        int cellSize = 30;
+        int startX = (int) (panelWidth / 2 - cellSize * PARTICLE_COLORS.length / 2);
+        int startY = 60;
+
+        for (int i = 0; i < PARTICLE_COLORS.length; i++) {
+            javafx.scene.shape.Circle rowLabel = new javafx.scene.shape.Circle(startX - 15,
+                    startY + i * cellSize + cellSize / 2, 6, PARTICLE_COLORS[i]);
+            javafx.scene.shape.Circle colLabel = new javafx.scene.shape.Circle(startX + i * cellSize + cellSize / 2,
+                    startY - 15, 6, PARTICLE_COLORS[i]);
+            uiPane.getChildren().addAll(rowLabel, colLabel);
+        }
+
+        for (int row = 0; row < PARTICLE_COLORS.length; row++) {
+            for (int col = 0; col < PARTICLE_COLORS.length; col++) {
+                Color sourceColor = PARTICLE_COLORS[row];
+                Color targetColor = PARTICLE_COLORS[col];
+
+                javafx.scene.shape.Rectangle cell = new javafx.scene.shape.Rectangle(
+                        startX + col * cellSize,
+                        startY + row * cellSize,
+                        cellSize - 3,
+                        cellSize - 3);
+
+                updateCellColor(cell, sourceColor, targetColor);
+
+                final int r = row;
+                final int c = col;
+                cell.setOnMouseClicked(event -> {
+                    cycleInteraction(PARTICLE_COLORS[r], PARTICLE_COLORS[c]);
+                    updateCellColor(cell, PARTICLE_COLORS[r], PARTICLE_COLORS[c]);
+                });
+
+                uiPane.getChildren().add(cell);
+            }
+        }
+
+        // instructions
+        String instructions = "Controls:\n" +
+                "Click: Spawn white\n" +
+                "B: Spawn blue at cursor\n" +
+                "V: Random blue\n" +
+                "R: Reset particles\n" +
+                "SPACE: Start simulation\n" +
+                "C: Circle pattern\n" +
+                "G: Grid pattern";
+
+        javafx.scene.text.Text instructionsText = new javafx.scene.text.Text(10,
+                startY + (PARTICLE_COLORS.length * cellSize) + 30, instructions);
+        instructionsText.setFill(Color.WHITE);
+        instructionsText.setStyle("-fx-font-size: 11px;");
+        uiPane.getChildren().add(instructionsText);
+
+        Pane root = (Pane) primaryStage.getScene().getRoot();
+        root.getChildren().add(uiPane);
+
+        uiVisible = true;
+    }
+
+    // rules
+
+    private void initializeRules() {
+        for (Color color : PARTICLE_COLORS) {
+            interactionRules.put(color, new HashMap<>());
+        }
+
+        // default rules
+        // white + white
+        interactionRules.get(Color.WHITE).put(Color.WHITE, InteractionType.ATTRACT);
+
+        // white + blue
+        interactionRules.get(Color.WHITE).put(Color.BLUE, InteractionType.ATTRACT);
+
+        // blue x white
+        interactionRules.get(Color.BLUE).put(Color.WHITE, InteractionType.REPEL);
+
+        // blue + blue
+        interactionRules.get(Color.BLUE).put(Color.BLUE, InteractionType.ATTRACT);
+    }
+
+    private void updateCellColor(javafx.scene.shape.Rectangle cell, Color source, Color target) {
+        InteractionType type = interactionRules.get(source).get(target);
+        switch (type) {
+            case ATTRACT:
+                cell.setFill(Color.GREEN);
+                break;
+            case REPEL:
+                cell.setFill(Color.RED);
+                break;
+            case NONE:
+                cell.setFill(Color.GRAY);
+                break;
+        }
+    }
+
+    private void cycleInteraction(Color source, Color target) {
+        InteractionType current = interactionRules.get(source).get(target);
+        InteractionType next;
+
+        switch (current) {
+            case ATTRACT:
+                next = InteractionType.REPEL;
+                break;
+            case REPEL:
+                next = InteractionType.NONE;
+                break;
+            case NONE:
+            default:
+                next = InteractionType.ATTRACT;
+                break;
+        }
+
+        interactionRules.get(source).put(target, next);
+    }
+
 }
