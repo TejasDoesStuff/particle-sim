@@ -102,14 +102,13 @@ public class App extends Application {
     }
 
     // constants for physics
-    private final double GRAVITY_RADIUS = 1000.0;
+    private final double GRAVITY_RADIUS = 100.0;
     private final double GRAVITATIONAL_CONSTANT = 0.1;
     private final double MASS = 40.0;
     private final double MINIMUM_DISTANCE = 5.0;
     private final double FRICTION = 0.97;
 
-    private final double BLUE_REPULSION_RADIUS = 30.0;
-    private final double BLUE_FORCE_MULTIPLIER = 5.0;
+    private final double REPULSION_RADIUS = 30.0;
 
     private List<Particle> particles = new ArrayList<>();
 
@@ -200,9 +199,8 @@ public class App extends Application {
 
                         boolean isAttractive = (interaction == InteractionType.ATTRACT);
 
-                        if (p.getColor() == Color.WHITE && other.getColor() == Color.BLUE
-                                && distance < BLUE_REPULSION_RADIUS) {
-                            force = Math.min(BLUE_FORCE_MULTIPLIER * force, 10.0);
+                        if (p.getColor() != other.getColor() && distance < REPULSION_RADIUS) {
+                            force = Math.min(force, 10.0);
                             isAttractive = false;
                         }
 
