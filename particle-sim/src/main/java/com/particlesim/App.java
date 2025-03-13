@@ -26,7 +26,7 @@ public class App extends Application {
     private Map<Color, Map<Color, InteractionType>> interactionRules = new HashMap<>();
     private Pane uiPane;
     private boolean uiVisible = false;
-    private final Color[] PARTICLE_COLORS = { Color.WHITE, Color.BLUE };
+    private final Color[] PARTICLE_COLORS = { Color.WHITE, Color.BLUE, Color.RED };
 
     private Stage primaryStage;
 
@@ -72,12 +72,13 @@ public class App extends Application {
                 clearParticles();
                 spawnWhiteParticles();
                 spawnBlueParticles();
+                spawnRedParticles();
             } else if (event.getCode() == KeyCode.C) {
                 clearParticles();
                 spawnCirclePattern();
             } else if (event.getCode() == KeyCode.G) {
                 clearParticles();
-                spawnWBGrid();
+                spawnGrid();
             } else if (event.getCode() == KeyCode.U) {
 
                 uiVisible = !uiVisible;
@@ -106,7 +107,7 @@ public class App extends Application {
     private final double GRAVITATIONAL_CONSTANT = 0.1;
     private final double MASS = 40.0;
     private final double MINIMUM_DISTANCE = 5.0;
-    private final double FRICTION = 0.97;
+    private final double FRICTION = 0.9;
 
     private final double REPULSION_RADIUS = 30.0;
 
@@ -297,6 +298,16 @@ public class App extends Application {
         root.getChildren().add(circle);
     }
 
+    private void spawnRedParticle(double x, double y) {
+        Particle particle = new Particle(x, y, Color.RED);
+        particles.add(particle);
+
+        Circle circle = new Circle(x, y, 3, Color.RED);
+
+        Pane root = (Pane) primaryStage.getScene().getRoot();
+        root.getChildren().add(circle);
+    }
+
     private void spawnWhiteParticles() {
         double uiWidth = uiPane.getPrefWidth();
         for (int i = 0; i < 500; i++) {
@@ -312,6 +323,15 @@ public class App extends Application {
             double x = uiWidth + Math.random() * (primaryStage.getScene().getWidth() - uiWidth);
             double y = Math.random() * primaryStage.getScene().getHeight();
             spawnBlueParticle(x, y);
+        }
+    }
+
+    private void spawnRedParticles() {
+        double uiWidth = uiPane.getPrefWidth();
+        for (int i = 0; i < 500; i++) {
+            double x = uiWidth + Math.random() * (primaryStage.getScene().getWidth() - uiWidth);
+            double y = Math.random() * primaryStage.getScene().getHeight();
+            spawnRedParticle(x, y);
         }
     }
 
@@ -359,33 +379,50 @@ public class App extends Application {
         }
     }
 
-    // Spawns a grid of white and blue particles
-    private void spawnWBGrid() {
-        int gridSize = 5;
-        double spacing = 30;
+    // Spawns a grid of red, white, and blue particles in rows
+    private void spawnGrid() {
+        int numRows = 10;  // Rows per grid
+        int numCols = 20;  // Columns per grid
+        double spacing = 7;  // Reduced spacing to fit more particles
 
         double uiWidth = uiPane.getPrefWidth();
-        double centerX = uiWidth + (primaryStage.getScene().getWidth() - uiWidth) / 2;
-        double centerY = primaryStage.getScene().getHeight() / 2;
+        double availableWidth = primaryStage.getScene().getWidth() - uiWidth;
+        double availableHeight = primaryStage.getScene().getHeight();
 
-        double startXWhite = centerX - spacing * (gridSize / 2) - 40;
-        double startYWhite = centerY - spacing * (gridSize / 2);
+        // Calculate grid dimensions
+        double gridWidth = numCols * spacing;
+        double gridHeight = numRows * spacing;
+        double totalHeight = gridHeight * 3 + spacing * 2; // 3 grids with spacing between them
 
-        double startXBlue = centerX + 40;
-        double startYBlue = centerY - spacing * (gridSize / 2);
+        // Calculate starting positions to center all grids
+        double startX = uiWidth + (availableWidth - gridWidth) / 2;
+        double startY = (availableHeight - totalHeight) / 2;
 
-        for (int i = 0; i < gridSize; i++) {
-            for (int j = 0; j < gridSize; j++) {
-                double x = startXWhite + j * spacing;
-                double y = startYWhite + i * spacing;
+        // Grid 1: Red particles at the top
+        for (int i = 0; i < numRows; i++) {
+            for (int j = 0; j < numCols; j++) {
+                double x = startX + j * spacing;
+                double y = startY + i * spacing;
+                spawnRedParticle(x, y);
+            }
+        }
+
+        // Grid 2: White particles in the middle
+        startY += gridHeight + spacing; // Move down to the middle grid position
+        for (int i = 0; i < numRows; i++) {
+            for (int j = 0; j < numCols; j++) {
+                double x = startX + j * spacing;
+                double y = startY + i * spacing;
                 spawnWhiteParticle(x, y);
             }
         }
 
-        for (int i = 0; i < gridSize; i++) {
-            for (int j = 0; j < gridSize; j++) {
-                double x = startXBlue + j * spacing;
-                double y = startYBlue + i * spacing;
+        // Grid 3: Blue particles at the bottom
+        startY += gridHeight + spacing; // Move down to the bottom grid position
+        for (int i = 0; i < numRows; i++) {
+            for (int j = 0; j < numCols; j++) {
+                double x = startX + j * spacing;
+                double y = startY + i * spacing;
                 spawnBlueParticle(x, y);
             }
         }
@@ -483,17 +520,32 @@ public class App extends Application {
         }
 
         // default rules
-        // white + white
+        // row: white, col: white
         interactionRules.get(Color.WHITE).put(Color.WHITE, InteractionType.ATTRACT);
 
-        // white + blue
+        // row: white, col: blue
         interactionRules.get(Color.WHITE).put(Color.BLUE, InteractionType.ATTRACT);
 
-        // blue x white
+        // row: white, col: red
+        interactionRules.get(Color.WHITE).put(Color.RED, InteractionType.REPEL);
+
+        // row: blue, col: white
         interactionRules.get(Color.BLUE).put(Color.WHITE, InteractionType.REPEL);
 
-        // blue + blue
+        // row: blue, col: blue
         interactionRules.get(Color.BLUE).put(Color.BLUE, InteractionType.ATTRACT);
+
+        // row: blue, col: red
+        interactionRules.get(Color.BLUE).put(Color.RED, InteractionType.ATTRACT);
+
+        // row: red, col: red
+        interactionRules.get(Color.RED).put(Color.RED, InteractionType.ATTRACT);
+
+        // row: red, col: white
+        interactionRules.get(Color.RED).put(Color.WHITE, InteractionType.ATTRACT);
+
+        // row: red, col: blue
+        interactionRules.get(Color.RED).put(Color.BLUE, InteractionType.REPEL);
     }
 
     private void updateCellColor(javafx.scene.shape.Rectangle cell, Color source, Color target) {
