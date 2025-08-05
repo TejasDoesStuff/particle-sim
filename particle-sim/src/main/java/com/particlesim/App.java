@@ -152,7 +152,7 @@ public class App extends Application {
         titleLabel.setTextFill(Color.WHITE);
         panel.add(titleLabel, 0, 0, m + 1, 1);
 
-        Label instructionLabel = new Label("left click to increase \nright click to decrease \nshift + left click to set to 1 \nshift + right click to set to -1");
+        Label instructionLabel = new Label("left click to increase \nright click to decrease \nshift + left click to set to increase by 0.5 \nshift + right click to decrease by -0.5");
         instructionLabel.setFont(Font.font("Arial", 12));
         instructionLabel.setTextFill(Color.LIGHTGRAY);
         panel.add(instructionLabel, 0, 1, m + 1, 1);
@@ -192,9 +192,9 @@ public class App extends Application {
 
                     if (event.isShiftDown()) {
                         if (event.getButton() == MouseButton.PRIMARY) {
-                            newValue = 1.0;
+                            newValue = Math.min(currentValue + 0.5, 1.0);
                         } else if (event.getButton() == MouseButton.SECONDARY) {
-                            newValue = -1.0;
+                            newValue = Math.min(currentValue - 0.5, 1.0);
                         } else {
                             newValue = currentValue;
                         }
