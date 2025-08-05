@@ -4,21 +4,21 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.lang.Math;
 
 import javafx.animation.AnimationTimer;
 import javafx.application.Application;
 import javafx.geometry.Rectangle2D;
 import javafx.scene.Scene;
-import javafx.scene.layout.Pane;
-import javafx.scene.paint.Color;
-import javafx.stage.Screen;
-import javafx.stage.Stage;
 import javafx.scene.input.KeyCode;
 import javafx.scene.input.MouseEvent;
+import javafx.scene.layout.Pane;
+import javafx.scene.paint.Color;
 import javafx.scene.shape.Circle;
+import javafx.stage.Screen;
+import javafx.stage.Stage;
 
 public class App extends Application {
+
     private enum InteractionType {
         ATTRACT, REPEL, NONE
     }
@@ -26,7 +26,7 @@ public class App extends Application {
     private Map<Color, Map<Color, InteractionType>> interactionRules = new HashMap<>();
     private Pane uiPane;
     private boolean uiVisible = false;
-    private final Color[] PARTICLE_COLORS = { Color.WHITE, Color.BLUE, Color.RED };
+    private final Color[] PARTICLE_COLORS = {Color.WHITE, Color.BLUE, Color.RED};
 
     private Stage primaryStage;
 
@@ -115,23 +115,20 @@ public class App extends Application {
 
     /**
      * Update the positions of all particles based on the forces acting on them
-     * 
-     * Rules:
-     * 1. White particles are attracted to white particles and blue particles
-     * 2. Attraction to blue particles takes priority over attraction to white
-     * particles
-     * 3. Blue particles repulse white particles
-     * 4. Blue particles attract blue particles
-     * 
-     * 
-     * Press R to reset board
-     * Press Space to start sim (bug when you spam space it gets faster and faster)
-     * Press B to spawn a blue particle at your mouse
-     * Press V to spawn a random blue particle
-     * Click to spawn a white particle at the mouse cursor
-     * 
-     * Patterns:
-     * Press C to spawn a circle of white particles in the center of the screen
+     *
+     * Rules: 1. White particles are attracted to white particles and blue
+     * particles 2. Attraction to blue particles takes priority over attraction
+     * to white particles 3. Blue particles repulse white particles 4. Blue
+     * particles attract blue particles
+     *
+     *
+     * Press R to reset board Press Space to start sim (bug when you spam space
+     * it gets faster and faster) Press B to spawn a blue particle at your mouse
+     * Press V to spawn a random blue particle Click to spawn a white particle
+     * at the mouse cursor
+     *
+     * Patterns: Press C to spawn a circle of white particles in the center of
+     * the screen
      */
     private void updateParticles() {
         System.out.println("Particles count: " + particles.size());
@@ -150,7 +147,7 @@ public class App extends Application {
             } else if (p.getX() < uiWidth) {
                 p.setX(screenWidth + uiWidth);
             }
-    
+
             if (p.getY() > screenHeight) {
                 p.setY(0);
             } else if (p.getY() < 0) {
@@ -171,15 +168,17 @@ public class App extends Application {
                 double dx = other.getX() - p.getX();
                 double dy = other.getY() - p.getY();
 
-                if (dx > screenWidth / 2)
-                    dx -= screenWidth;
-                else if (dx < -screenWidth / 2)
+                if (dx > screenWidth / 2) {
+                    dx -= screenWidth; 
+                }else if (dx < -screenWidth / 2) {
                     dx += screenWidth;
+                }
 
-                if (dy > screenHeight / 2)
-                    dy -= screenHeight;
-                else if (dy < -screenHeight / 2)
+                if (dy > screenHeight / 2) {
+                    dy -= screenHeight; 
+                }else if (dy < -screenHeight / 2) {
                     dy += screenHeight;
+                }
 
                 double distance = Math.sqrt(dx * dx + dy * dy);
 
@@ -188,8 +187,7 @@ public class App extends Application {
                     double separationStrength = 1.5;
                     fX -= (dx / distance) * overlap * separationStrength;
                     fY -= (dy / distance) * overlap * separationStrength;
-                }
-                else if (distance <= GRAVITY_RADIUS) {
+                } else if (distance <= GRAVITY_RADIUS) {
                     double effectiveDistance = Math.max(distance, 0.1);
                     InteractionType interaction = interactionRules.get(p.getColor()).get(other.getColor());
 
@@ -269,7 +267,6 @@ public class App extends Application {
     }
 
     // particle spawning
-
     private void spawnBlueParticle(double x, double y) {
         Particle particle = new Particle(x, y, Color.BLUE);
         particles.add(particle);
@@ -362,7 +359,6 @@ public class App extends Application {
     }
 
     // special patterns
-
     // Spawns a circle of white particles in the center of the screen
     private void spawnCirclePattern() {
         int numParticles = 100;
@@ -491,14 +487,14 @@ public class App extends Application {
         }
 
         // instructions
-        String instructions = "Controls:\n" +
-                "Click: Spawn white\n" +
-                "B: Spawn blue at cursor\n" +
-                "V: Random blue\n" +
-                "R: Reset particles\n" +
-                "SPACE: Start simulation\n" +
-                "C: Circle pattern\n" +
-                "G: Grid pattern";
+        String instructions = "Controls:\n"
+                + "Click: Spawn white\n"
+                + "B: Spawn blue at cursor\n"
+                + "V: Random blue\n"
+                + "R: Reset particles\n"
+                + "SPACE: Start simulation\n"
+                + "C: Circle pattern\n"
+                + "G: Grid pattern";
 
         javafx.scene.text.Text instructionsText = new javafx.scene.text.Text(10,
                 startY + (PARTICLE_COLORS.length * cellSize) + 30, instructions);
@@ -513,7 +509,6 @@ public class App extends Application {
     }
 
     // rules
-
     private void initializeRules() {
         for (Color color : PARTICLE_COLORS) {
             interactionRules.put(color, new HashMap<>());
