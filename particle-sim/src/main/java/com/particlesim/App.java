@@ -25,12 +25,16 @@ import javafx.stage.Stage;
 
 public class App extends Application {
 
-    int n = 1000;
+    int n = 4000;
     double dt = 0.02;
     double frictionHalfLife = 0.040;
     double rMax = 0.1;
     int m = 6;
     int forceFactor = 5;
+    int numCells = (int) Math.floor(1.0 / rMax);
+    double cellSize = rMax;
+    double radius = 1;
+    ArrayList<ArrayList<ArrayList<Integer>>> grid = new ArrayList<>();
 
     ArrayList<ArrayList<Double>> matrix = makeRandomMatrix();
 
@@ -51,6 +55,11 @@ public class App extends Application {
     private Pane simulationPane;
     private GridPane controlPane;
     private Rectangle[][] forceSquares;
+
+    private long lastTime = 0;
+    private int frames = 0;
+    private double fps = 0;
+    private Label fpsLabel = new Label("FPS: 0");
 
     private double force(double r, double a) {
         double beta = 0.3;
@@ -97,10 +106,79 @@ public class App extends Application {
             velocitiesX.add(0.0);
             velocitiesY.add(0.0);
 
-            Circle circle = new Circle(2);
+            Circle circle = new Circle(radius);
             circle.setFill(typeColors.get(particleType));
             circles.add(circle);
         }
+    }
+
+    private void initializeGrid() {
+        for (int i = 0; i < numCells; i++) {
+            ArrayList<ArrayList<Integer>> row = new ArrayList<>();
+            for (int j = 0; j < numCells; j++) {
+                row.add(new ArrayList<>());
+            }
+            grid.add(row);
+        }
+    }
+
+    private int roundPosition(int p) {
+        if (p < 0) {
+            return 0;
+        }
+
+        if (p >= numCells) {
+            return numCells - 1;
+        }
+
+        return p;
+    }
+
+    private int getCell(double value) {
+        return roundPosition((int) (value / cellSize));
+    }
+
+    private void updateGrid() {
+        for (int i = 0; i < numCells; i++) {
+            for (int j = 0; j < numCells; j++) {
+                grid.get(i).get(j).clear();
+            }
+        }
+
+        for (int i = 0; i < n; i++) {
+            int cx = getCell(positionsX.get(i));
+            int cy = getCell(positionsY.get(i));
+            grid.get(cx).get(cy).add(i);
+        }
+    }
+
+    private final int[] offsets = {-1, 0, 1};
+
+    private ArrayList<Integer> getNeighbors(int cx, int cy) {
+        ArrayList<Integer> neighbors = new ArrayList<>();
+
+        for (int ox : offsets) {
+            for (int oy : offsets) {
+                int nx = cx + ox;
+                int ny = cy + oy;
+
+                if (nx < 0) {
+                    nx += numCells;
+                }
+                if (ny < 0) {
+                    ny += numCells;
+                }
+                if (nx >= numCells) {
+                    nx -= numCells;
+                }
+                if (ny >= numCells) {
+                    ny -= numCells;
+                }
+
+                neighbors.addAll(grid.get(nx).get(ny));
+            }
+        }
+        return neighbors;
     }
 
     @Override
@@ -109,6 +187,7 @@ public class App extends Application {
         width = screenBounds.getWidth() * 0.7;
         height = screenBounds.getHeight() * 0.9;
 
+        initializeGrid();
         initializeParticles();
 
         BorderPane root = new BorderPane();
@@ -128,9 +207,28 @@ public class App extends Application {
         controlPane = createControlPanel();
         root.setRight(controlPane);
 
+        fpsLabel.setTextFill(Color.WHITE);
+        HBox fpsBox = new HBox(fpsLabel);
+        fpsBox.setPadding(new Insets(5));
+        fpsBox.setStyle("-fx-background-color: rgba(0,0,0,0.6);");
+        root.setTop(fpsBox);
+        BorderPane.setMargin(fpsBox, new Insets(10, 0, 0, 10));
+
         AnimationTimer timer = new AnimationTimer() {
             @Override
             public void handle(long now) {
+                if (lastTime > 0) {
+                    frames++;
+                    if (now - lastTime >= 1000000000) {
+                        fps = frames;
+                        fpsLabel.setText("FPS: " + fps);
+                        frames = 0;
+                        lastTime = now;
+                    }
+                } else {
+                    lastTime = now;
+                }
+
                 updateParticles();
                 renderParticles();
             }
@@ -287,14 +385,21 @@ public class App extends Application {
     }
 
     private void updateParticles() {
+        updateGrid();
         for (int i = 0; i < n; i++) {
             double totalForceX = 0;
             double totalForceY = 0;
 
-            for (int j = 0; j < n; j++) {
+            int cx = getCell(positionsX.get(i));
+            int cy = getCell(positionsY.get(i));
+
+            ArrayList<Integer> neighbors = getNeighbors(cx, cy);
+
+            for (int j : neighbors) {
                 if (j == i) {
                     continue;
                 }
+
                 double rx = positionsX.get(j) - positionsX.get(i);
                 double ry = positionsY.get(j) - positionsY.get(i);
 
@@ -313,7 +418,13 @@ public class App extends Application {
 
                 double r = Math.hypot(rx, ry);
                 if (r > 0 && r < rMax) {
-                    double f = force(r / rMax, matrix.get(particleTypes.get(i)).get(particleTypes.get(j)));
+
+                    int typeI = particleTypes.get(i);
+                    int typeJ = particleTypes.get(j);
+
+                    double a = matrix.get(typeI).get(typeJ);
+                    double f = force(r / rMax, a);
+
                     totalForceX += rx / r * f;
                     totalForceY += ry / r * f;
                 }
@@ -322,11 +433,8 @@ public class App extends Application {
             totalForceX *= rMax * forceFactor;
             totalForceY *= rMax * forceFactor;
 
-            velocitiesX.set(i, velocitiesX.get(i) * frictionFactor);
-            velocitiesY.set(i, velocitiesY.get(i) * frictionFactor);
-
-            velocitiesX.set(i, velocitiesX.get(i) + totalForceX * dt);
-            velocitiesY.set(i, velocitiesY.get(i) + totalForceY * dt);
+            velocitiesX.set(i, velocitiesX.get(i) * frictionFactor + totalForceX * dt);
+            velocitiesY.set(i, velocitiesY.get(i) * frictionFactor + totalForceY * dt);
 
         }
 
